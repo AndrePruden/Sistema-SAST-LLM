@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
-public class SonarQubeAdapter implements AnalysisPort{
+public class SonarQubeAdapter implements AnalysisPort {
     private final RestTemplate restTemplate;
 
     @Value("${sonar.url}")
@@ -32,31 +32,42 @@ public class SonarQubeAdapter implements AnalysisPort{
     @Override
     public List<Vulnerability> scanProject(String projectKey) {
         List<Vulnerability> vulnerabilities = new ArrayList<>();
-        String url = sonarQubeUrl + "/api/issues/search?componentKeys=" + projectKey + "&types=VULNERABILITY";
+        String url = sonarQubeUrl + "/api/issues/search?componentKeys=" + projectKey;
 
         HttpHeaders headers = new HttpHeaders();
-        headers.setBasicAuth(sonarToken, ""); 
+        headers.setBasicAuth(sonarToken, "");
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         try {
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-            
+
             ObjectMapper mapper = new ObjectMapper();
             JsonNode root = mapper.readTree(response.getBody());
             JsonNode issues = root.path("issues");
 
             for (JsonNode issue : issues) {
+                String severity = issue.path("severity").asText();
+
+                JsonNode impacts = issue.path("impacts");
+                if (impacts.isArray() && !impacts.isEmpty()) {
+                    for (JsonNode impact : impacts) {
+                        if ("SECURITY".equals(impact.path("softwareQuality").asText())) {
+                            severity = impact.path("severity").asText(); 
+                        }
+                    }
+                }
+
                 vulnerabilities.add(Vulnerability.builder()
                         .id(issue.path("key").asText())
                         .ruleKey(issue.path("rule").asText())
                         .message(issue.path("message").asText())
                         .component(issue.path("component").asText())
                         .line(issue.path("line").asInt(-1))
-                        .severity(issue.path("severity").asText())
+                        .severity(severity)
                         .build());
             }
         } catch (Exception e) {
-            System.err.println(e.getMessage());
+            System.err.println("Error de conexión con SonarQube: " + e.getMessage());
         }
 
         return vulnerabilities;
