@@ -1,6 +1,7 @@
 package com.ucb.proyecto;
 
 import com.ucb.proyecto.analysis.application.AnalysisPort;
+import com.ucb.proyecto.analysis.domain.CriticalityEvaluator;
 import com.ucb.proyecto.analysis.domain.Vulnerability;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -23,20 +24,18 @@ public class ProyectoApplication implements CommandLineRunner {
     public void run(String... args) throws Exception {
         System.out.println("=========================================");
         System.out.println("Iniciando escaneo estático en SonarQube...");
-        
-        List<Vulnerability> vulnerabilidades = analysisPort.scanProject("proyecto-prueba");
-        
-        System.out.println("Total de vulnerabilidades encontradas: " + vulnerabilidades.size());
-        
-        for (Vulnerability v : vulnerabilidades) {
-            System.out.println("- Regla: " + v.getRuleKey());
-            System.out.println("  Mensaje: " + v.getMessage());
-            System.out.println("  Archivo: " + v.getComponent() + " (Línea: " + v.getLine() + ")");
-            System.out.println("  Severidad: " + v.getSeverity());
-            System.out.println("-----------------------------------------");
+
+        List<Vulnerability> allIssues = analysisPort.scanProject("proyecto");
+
+        CriticalityEvaluator evaluator = new CriticalityEvaluator();
+        List<Vulnerability> criticalVulnerabilities = evaluator.filterCriticalVulnerabilities(allIssues);
+
+        System.out.println("Total de vulnerabilidades CRITICAS encontradas: " + criticalVulnerabilities.size());
+
+        for (Vulnerability v : criticalVulnerabilities) {
+            System.out.println("- [" + v.getSeverity() + " | CVSS: " + v.getCvssScore() + "] " + v.getRuleKey() + " en línea " + v.getLine());
+            System.out.println("  Detalle: " + v.getMessage());
         }
-        
-        System.out.println("Escaneo finalizado exitosamente.");
         System.out.println("=========================================");
     }
 }
