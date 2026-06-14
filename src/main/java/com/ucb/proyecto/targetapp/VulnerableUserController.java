@@ -11,8 +11,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class VulnerableUserController {
-
-    // VULNERABILIDAD DELIBERADA: CWE-611 (XXE)
     @PostMapping("/api/v1/xml/parse")
     public String parseXml(@RequestBody String xmlString) {
         try {
