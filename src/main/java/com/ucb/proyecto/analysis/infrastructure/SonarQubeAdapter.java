@@ -32,7 +32,7 @@ public class SonarQubeAdapter implements AnalysisPort {
     @Override
     public List<Vulnerability> scanProject(String projectKey) {
         List<Vulnerability> vulnerabilities = new ArrayList<>();
-        String url = sonarQubeUrl + "/api/issues/search?componentKeys=" + projectKey;
+        String url = sonarQubeUrl + "/api/issues/search?componentKeys=" + projectKey + "&statuses=OPEN";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBasicAuth(sonarToken, "");
@@ -57,12 +57,19 @@ public class SonarQubeAdapter implements AnalysisPort {
                     }
                 }
 
+                int lineNumber = -1;
+                if (issue.has("line")) {
+                    lineNumber = issue.path("line").asInt();
+                } else if (issue.has("textRange") && issue.path("textRange").has("startLine")) {
+                    lineNumber = issue.path("textRange").path("startLine").asInt();
+                }
+
                 vulnerabilities.add(Vulnerability.builder()
                         .id(issue.path("key").asText())
                         .ruleKey(issue.path("rule").asText())
                         .message(issue.path("message").asText())
-                        .component(issue.path("component").asText())
-                        .line(issue.path("line").asInt(-1))
+                        .component(issue.path("component").asText()) 
+                        .line(lineNumber) 
                         .severity(severity)
                         .build());
             }
